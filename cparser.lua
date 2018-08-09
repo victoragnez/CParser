@@ -32,11 +32,27 @@ local function sep_by(patt, sep, label)
 	return patt * ( sep * expect(patt, label ) )^0
 end
 
+local labellist = {
+	{"InvalidDecl", "invalid declaration"},
+	
+
+} 
+
+local function get(str)
+	for _, pair in ipairs(labellist) do
+		if pair[1] == str then
+			return pair[2]
+		end
+	end
+end
+
 --Grammar
 local G = { V"translation_unit", 
 	translation_unit =
-		V"skip" * expect(V"external_decl"^1, "invalid declaration") * expect(-P(1), "invalid declaration");
+		V"skip" * expect(V"external_decl"^1, "InvalidDecl") * expect(-P(1), "InvalidDecl");
 
+	InvalidDecl = P(1)^0*lpeg.Cc(get("InvalidDecl"));
+	
 	external_decl =
 		V"function_def" +
 		V"decl";
@@ -374,7 +390,7 @@ function parser.parse (subject, filename)
 	return ret
 end
 
-for i = 1, 53, 1
+for i = 33, 33, 1
 do
 	test = tostring(i);
 	if test:len() == 1 then
@@ -385,6 +401,12 @@ do
 	io.input(file)
 	subject = io.read("*all")
 	io.close(file)
+	a, b, c, d, e = parser.parse(subject, filename)
+	print(a)
+	print(b)
+	print(c)
+	print(d)
+	print(e)
 	if parser.parse(subject, filename) then
 		print("Ok")
 	end
