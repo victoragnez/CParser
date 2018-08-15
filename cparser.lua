@@ -35,6 +35,7 @@ end
 local labellist = {
 	{"InvalidDecl", "invalid declaration"},
 	{"Enumerator", "expected enumerator"},
+	{"EnumeratorComma", "expected enumerator after ','"},
 	{"Braces", "expected '}'"},
 	{"ZeroDecl", "expected at least one struct/union declaration"},
 	{"DeclAfterComma", "expected declarator after ','"},
@@ -42,9 +43,38 @@ local labellist = {
 	{"Brack", "expected ')'"},
 	{"EndComment", "expected \"*/\""},
 	{"Semicolon", "expected ';'"},
+	{"Colon", "expected ':'"},
 	{"ParamDecl", "expected parameter declaration after ','"},
 	{"InvalidStmt", "invalid statement"},
-} 
+	{"InvalidExpr", "invalid expression"},
+	{"InvalidExprInc", "invalid expression after \"++\" operator"},
+	{"InvalidExprDec", "invalid expression after \"--\" operator"},
+	{"InvalidExprUnary", "invalid expression after unary operator"},
+	{"InvalidExprCond1", "invalid expression after '?'"},
+	{"InvalidExprCond2", "invalid expression after ':'"},
+	{"Identifier", "expected identifier"},
+	{"Stat", "expected statement"},
+	{"StatCase", "expected statement after \"case\""},
+	{"StatDefault", "expected statement after \"default\""},
+	{"BrackIf", "expected '(' after \"if\""},
+	{"BrackWhile", "expected '(' after \"while\""},
+	{"BrackSwitch", "expected '(' after \"switch\""},
+	{"BrackFor", "expected '(' after \"for\""},
+	{"ExprComma", "expected expression after ',' operator"},
+	{"ExprLogOr", "expected expression after \"||\" operator"},
+	{"ExprLogAnd", "expected expression after \"&&\" operator"},
+	{"ExprIncOr", "expected expression after '|' operator"},
+	{"ExprExcOr", "expected expression after '^' operator"},
+	{"ExprAnd", "expected expression after '&' operator"},
+	{"ExprEq", "expected expression after (in)equality operator"},
+	{"ExprRel", "expected expression after relational operator"},
+	{"ExprShift", "expected expression after shift operator"},
+	{"ExprAdd", "expected expression after additive operator"},
+	{"ExprMult", "expected expression after multiplicative operator"},
+	{"While", "expected \"while\""},
+	{"InvalidSizeof", "invalid type_name/expression after \"sizeof\""},
+	{"InvalidEscSeq", "invalid esc sequence"},
+}
 
 local function get(str)
 	for _, pair in ipairs(labellist) do
@@ -52,6 +82,16 @@ local function get(str)
 			return pair[2]
 		end
 	end
+end
+
+errorlist = { }
+
+local function recordOne(pos, label)
+	table.insert(errorlist,{pos, label})
+end
+
+local function record(str)
+	return (Cp() * Cc(get(str))) / recordOne
 end
 
 --Grammar
@@ -95,7 +135,7 @@ local G = { V"translation_unit",
 		kw("unsigned") +
 		V"typedef_name" +
 		kw("enum") * V"id"^-1 * sym("{") * expect(V"enumerator", "Enumerator") * 
-			( sym(",") * expect(V"enumerator", "Enumerator") )^0 * expect(sym("}"), "Braces") +
+			( sym(",") * expect(V"enumerator", "EnumeratorComma") )^0 * expect(sym("}"), "Braces") +
 		kw("enum") * V"id" +
 		V"struct_or_union" * V"id"^-1 * sym("{") * expect(V"struct_decl"^1, "ZeroDecl")
 			 * expect(sym("}"), "Braces") +
@@ -128,11 +168,11 @@ local G = { V"translation_unit",
 		V"type_spec" + V"type_qualifier";
 
 	struct_declarator =
-		V"declarator"^-1 * sym(":") * expect(V"const_exp", "invalid expression") + 
+		V"declarator"^-1 * sym(":") * expect(V"const_exp", "InvalidExpr") + 
 		V"declarator";
 
 	enumerator =
-		V"id" * sym("=") * expect(V"const_exp", "invalid expression") +
+		V"id" * sym("=") * expect(V"const_exp", "InvalidExpr") +
 		V"id";
 
 	declarator =
@@ -155,7 +195,7 @@ local G = { V"translation_unit",
 		V"decl_spec"^1 * ( V"declarator" + V"abstract_declarator"^-1 );
 
 	id_list =
-		V"id" * ( sym(",") * expect(V"id", "expected identifier") )^0;
+		V"id" * ( sym(",") * expect(V"id", "Identifier") )^0;
 
 	initializer =
 		sym("{") * V"initializer" * (sym(",") * V"initializer")^0 * sym(",")^-1 * expect(sym("}"), "Braces") +
@@ -178,28 +218,28 @@ local G = { V"translation_unit",
 
 	stat =
 		V"id" * sym(":") * V"stat" +
-		kw("case") * expect(V"const_exp", "invalid expression") * expect(sym(":"), "expected ':'") * 
-			expect(V"stat", "expected statement after \"case\"") +
-		kw("default") * expect(sym(":"), "expected ':'") * expect(V"stat", "expected statement after \"default\"") +
+		kw("case") * expect(V"const_exp", "InvalidExpr") * expect(sym(":"), "Colon") * 
+			expect(V"stat", "StatCase") +
+		kw("default") * expect(sym(":"), "Colon") * expect(V"stat", "StatDefault") +
 		V"exp"^-1 * sym(";") +
 		V"compound_stat" +
-		kw("if") * expect(sym("("), "expected '(' after \"if\"") * expect(V"exp", "invalid expression") * 
-			expect(sym(")"), "Brack") * expect(V"stat", "expected statement") * kw("else") * expect(V"stat", "expected statement") +
-		kw("if") * expect(sym("("), "expected '(' after \"if\"") * expect(V"exp", "invalid expression") * 
-			expect(sym(")"), "Brack") * expect(V"stat", "expected statement") +
-		kw("switch") * expect(sym("("), "expected '(' after \"switch\"") * expect(V"exp", "invalid expression") * 
-			expect(sym(")"), "Brack") * expect(V"stat", "expected statement") +
-		kw("while") * expect(sym("("), "expected '(' after \"while\"") * expect(V"exp", "invalid expression") * 
-			expect(sym(")"), "Brack") * expect(V"stat", "expected statement") +
-		kw("do") * expect(V"stat", "expected statement") * expect(kw("while"), "expected \"while\"") * 
-			expect(sym("("), "expected '(' after \"while\"") * expect(V"exp", "invalid expression") * 
+		kw("if") * expect(sym("("), "BrackIf") * expect(V"exp", "InvalidExpr") * 
+			expect(sym(")"), "Brack") * expect(V"stat", "Stat") * kw("else") * expect(V"stat", "Stat") +
+		kw("if") * expect(sym("("), "BrackIf") * expect(V"exp", "InvalidExpr") * 
+			expect(sym(")"), "Brack") * expect(V"stat", "Stat") +
+		kw("switch") * expect(sym("("), "BrackSwitch") * expect(V"exp", "InvalidExpr") * 
+			expect(sym(")"), "Brack") * expect(V"stat", "Stat") +
+		kw("while") * expect(sym("("), "BrackWhile") * expect(V"exp", "InvalidExpr") * 
+			expect(sym(")"), "Brack") * expect(V"stat", "Stat") +
+		kw("do") * expect(V"stat", "Stat") * expect(kw("while"), "While") * 
+			expect(sym("("), "BrackWhile") * expect(V"exp", "InvalidExpr") * 
 			expect(sym(")"), "Brack") * expect(sym(";"), "Semicolon") +
 		kw("for") * 
-			expect(sym("("), "expected '('") * V"exp"^-1 * 
+			expect(sym("("), "BrackFor") * V"exp"^-1 * 
 			expect(sym(";"), "Semicolon") * V"exp"^-1 * 
 			expect(sym(";"), "Semicolon") * V"exp"^-1 * 
 			expect(sym(")"), "Brack") * V"stat" +
-		kw("goto") * expect(V"id", "expected identifier") * expect(sym(";"), "Semicolon") +
+		kw("goto") * expect(V"id", "Identifier") * expect(sym(";"), "Semicolon") +
 		kw("continue") * expect(sym(";"), "Semicolon") +
 		kw("break") * expect(sym(";"), "Semicolon") +
 		kw("return") * V"exp"^-1 * expect(sym(";"), "Semicolon");
@@ -208,10 +248,10 @@ local G = { V"translation_unit",
 		sym("{") * V"decl"^0 * V"stat"^0 * expect(sym("}"), "Braces");
 
 	exp =
-		sep_by(V"assignment_exp", sym(","), "expected expression after ',' operator");
+		sep_by(V"assignment_exp", sym(","), "ExprComma");
 
 	assignment_exp =
-		V"unary_exp" * V"assignment_operator" * expect(V"assignment_exp", "invalid expression") +
+		V"unary_exp" * V"assignment_operator" * expect(V"assignment_exp", "InvalidExpr") +
 		V"conditional_exp";
 
 	assignment_operator =
@@ -228,60 +268,60 @@ local G = { V"translation_unit",
 		sym("|=");
 
 	conditional_exp =
-		V"logical_or_exp" * sym("?") * expect(V"exp", "invalid expression after '?'") * 
-			expect(sym(":"), "expected ':'") * expect(V"conditional_exp", "invalid expression after ':'") +
+		V"logical_or_exp" * sym("?") * expect(V"exp", "InvalidExprCond1") * 
+			expect(sym(":"), "Colon") * expect(V"conditional_exp", "InvalidExprCond2") +
 		V"logical_or_exp";
 
 	const_exp =
 		V"conditional_exp";
 
 	logical_or_exp =
-		sep_by(V"logical_and_exp", sym("||"), "expected expression after \"||\" operator");
+		sep_by(V"logical_and_exp", sym("||"), "ExprLogOr");
 		
 	logical_and_exp =
-		sep_by(V"inclusive_or_exp", sym("&&"), "expected expression after \"&&\" operator");
+		sep_by(V"inclusive_or_exp", sym("&&"), "ExprLogAnd");
 		
 	inclusive_or_exp =
-		sep_by(V"exclusive_or_exp", token(P("|")*-P("|")), "expected expression after '|' operator");
+		sep_by(V"exclusive_or_exp", token(P("|")*-P("|")), "ExprIncOr");
 	
 	exclusive_or_exp =
-		sep_by(V"and_exp", sym("^"), "expected expression after '^' operator");
+		sep_by(V"and_exp", sym("^"), "ExprExcOr");
 	
 	and_exp = 
-		sep_by(V"equality_exp", token(P("&")*-P("&")), "expected expression after '&' operator");
+		sep_by(V"equality_exp", token(P("&")*-P("&")), "ExprAnd");
 	
 	equality_exp = 
-		sep_by(V"relational_exp", sym("==") + sym("!="), "expected expression after (in)equality operator");
+		sep_by(V"relational_exp", sym("==") + sym("!="), "ExprEq");
 	
 	relational_exp = 
-		sep_by(V"shift_exp", sym("<") + sym(">") + sym("<=") + sym(">="), "expected expression after relational operator");
+		sep_by(V"shift_exp", sym("<") + sym(">") + sym("<=") + sym(">="), "ExprRel");
 	
 	shift_exp =
-		sep_by(V"additive_exp", sym("<<") + sym(">>"), "expected expression after shift operator");
+		sep_by(V"additive_exp", sym("<<") + sym(">>"), "ExprShift");
 	
 	additive_exp =
-		sep_by(V"multiplicative_exp", sym("+") + sym("-"), "expected expression after additive operator");
+		sep_by(V"multiplicative_exp", sym("+") + sym("-"), "ExprAdd");
 	
 	multiplicative_exp =
-		sep_by(V"cast_exp", sym("*") + sym("/") + sym("%"), "expected expression after multiplicative operator");
+		sep_by(V"cast_exp", sym("*") + sym("/") + sym("%"), "ExprMult");
 
 	cast_exp =
 		( sym("(") * V"type_name" * expect(sym(")"), "Brack") ) * V"cast_exp" +
 		V"unary_exp";
 		
 	unary_exp =
-		sym("++") * expect(V"unary_exp", "invalid expression after \"++\" operator") +
-		sym("--") * expect(V"unary_exp", "invalid expression after \"--\" operator") +
-		V"unary_operator" * expect(V"cast_exp", "invalid expression after unary operator") +
-		kw("sizeof") * expect(( V"type_name" + V"unary_exp" ), "invalid type_name/expression after \"sizeof\"") +
+		sym("++") * expect(V"unary_exp", "InvalidExprInc") +
+		sym("--") * expect(V"unary_exp", "InvalidExprDec") +
+		V"unary_operator" * expect(V"cast_exp", "InvalidExprUnary") +
+		kw("sizeof") * expect(( V"type_name" + V"unary_exp" ), "InvalidSizeof") +
 		V"postfix_exp";
 	
 	postfix_exp =
 		V"primary_exp" * ( 
-			sym("[") * expect(V"exp", "invalid expression") * expect(sym("]"), "SqBrack") +
-			sym("(") * sep_by(V"assignment_exp", sym(","), "expected parameter expression")^-1 * expect(sym(")"), "Brack") +
-			sym(".") * expect(V"id", "expected identifier") +
-			sym("->") * expect(V"id", "expected identifier") +
+			sym("[") * expect(V"exp", "InvalidExpr") * expect(sym("]"), "SqBrack") +
+			sym("(") * sep_by(V"assignment_exp", sym(","), "InvalidExpr")^-1 * expect(sym(")"), "Brack") +
+			sym(".") * expect(V"id", "Identifier") +
+			sym("->") * expect(V"id", "Identifier") +
 			sym("++") +
 			sym("--")
 		 )^0;
@@ -348,7 +388,7 @@ local G = { V"translation_unit",
 			P"\"" +
 			S("01234567") * S("01234567")^-2 +
 			P"x" * xdigit^1 ), 
-			"invalid esc sequence");
+			"InvalidEscSeq");
 	
 	enumeration_const =
 		V"id";
@@ -373,16 +413,125 @@ local G = { V"translation_unit",
 		V"constant" + 
 		token(P(1));
 	
-	InvalidDecl = Ct(Cp() * Cc(get("InvalidDecl")))*V"Token"^0;
-	Enumerator = Ct(Cp() * Cc(get("Enumerator"))) * (V"Token"-sym("}"))^0;
-	Braces = Ct(Cp() * Cc(get("Braces")));
-	ZeroDecl = Ct(Cp() * Cc(get("ZeroDecl"))) * (V"Token"-sym("}"))^0;
-	DeclAfterComma = Ct(Cp() * Cc(get("DeclAfterComma"))) * (V"Token"-sym(")"))^0;
-	SqBrack = Ct(Cp() * Cc(get("SqBrack")));
-	Brack = Ct(Cp() * Cc(get("Brack")));
-	EndComment = Ct(Cp() * Cc(get("EndComment")));
-	Semicolon = Ct(Cp() * Cc(get("Semicolon")));
-	ParamDecl = Ct(Cp() * Cc(get("ParamDecl"))) * (V"Token"-sym(")"))^0;
+	InvalidDecl =
+		record"InvalidDecl" * V"Token"^0;
+	
+	Enumerator =
+		record"Enumerator" * (V"Token"-sym("}"))^0;
+	
+	EnumeratorComma =
+		record"EnumeratorComma" * (V"Token"-sym("}"))^0;
+	
+	Braces =
+		record"Braces";
+	
+	ZeroDecl =
+		record"ZeroDecl" * (V"Token"-sym("}"))^0;
+	
+	DeclAfterComma =
+		record"DeclAfterComma" * (V"Token"-sym(")"))^0;
+	
+	SqBrack =
+		record"SqBrack";
+	
+	Brack =
+		record"Brack";
+	
+	EndComment =
+		record"EndComment";
+	
+	Semicolon =
+		record"Semicolon";
+	
+	Colon =
+		record"Colon";
+	
+	ParamDecl =
+		record"ParamDecl" * (V"Token"-sym(")"))^0;
+	
+	InvalidExpr =
+		record"InvalidExpr" * (V"Token"-(sym(";") + sym("{") + sym("}") + sym(",") + sym(":")))^0;
+	
+	InvalidExprInc =
+		record"InvalidExprInc" * (V"Token"-(sym(";") + sym("{") + sym("}") + sym(",") + sym(":")))^0;
+	
+	InvalidExprDec =
+		record"InvalidExprDec" * (V"Token"-(sym(";") + sym("{") + sym("}") + sym(",") + sym(":")))^0;
+	
+	InvalidExprUnary =
+		record"InvalidExprUnary" * (V"Token"-(sym(";") + sym("{") + sym("}") + sym(",") + sym(":")))^0;
+	
+	InvalidExprCond1 =
+		record"InvalidExprCond1";
+	
+	InvalidExprCond2 =
+		record"InvalidExprCond2";
+	
+	Identifier =
+		record"Identifier";
+	
+	Stat =
+		record"Stat";
+	
+	StatCase =
+		record"StatCase";
+	
+	StatDefault =
+		record"StatDefault";
+	
+	BrackIf =
+		record"BrackIf";
+	
+	BrackWhile =
+		record"BrackWhile";
+	
+	BrackSwitch =
+		record"BrackSwitch";
+	
+	BrackFor =
+		record"BrackFor";
+	
+	ExprComma =
+		record"ExprComma";
+	
+	ExprLogOr =
+		record"ExprLogOr";
+	
+	ExprLogAnd =
+		record"ExprLogAnd";
+	
+	ExprIncOr =
+		record"ExprIncOr";
+	
+	ExprExcOr =
+		record"ExprExcOr";
+	
+	ExprAnd =
+		record"ExprAnd";
+	
+	ExprEq =
+		record"ExprEq";
+	
+	ExprRel =
+		record"ExprRel";
+	
+	ExprShift =
+		record"ExprShift";
+	
+	ExprAdd =
+		record"ExprAdd";
+	
+	ExprMult =
+		record"ExprMult";
+	
+	While =
+		record"While";
+	
+	InvalidSizeof =
+		record"InvalidSizeof";
+	
+	InvalidEscSeq =
+		record"InvalidEscSeq" * P(1);
 }
 
 local parser = {}
@@ -399,31 +548,35 @@ function getpos(pos, subject)
 			c = c+1
 		end
 	end
-	return tostring(l) .. ":" .. tostring(c)
+	return l, c
 end
 
 function parser.parse (subject, filename)
+	for i in pairs(errorlist) do
+		errorlist[i] = nil
+	end
 	lpeg.setmaxstack(2000)
-	local ret, b, c = lpeg.match(G, subject)
-	if (not ret) or cap then
-		print("ERRO")
-	end
-	qt = 0
-	for errNo, pair in ipairs(ret) do
+	local ret, a = lpeg.match(G, subject)
+	assert(ret and not a)
+	
+	lastLine = 0
+	for errNo, pair in ipairs(errorlist) do
 		pos, label = pair[1], pair[2]
-		print(filename .. ":" .. getpos(pos, subject) .. " " .. label)
-		print(subject:sub(pos,pos))
-		print("^")
-		qt = errNo
+		l, c = getpos(pos,subject)
+		if l ~= lastLine then
+			print(filename .. ":" .. tostring(l) .. ":" .. tostring(c) .. " " .. label)
+			print(subject:sub(pos,pos))
+			print("^")
+			lastLine = l
+		end
 	end
-	if qt == 0 then
+	if lastLine == 0 then
 		print("OK")
 	end
 	return ret
 end
 
---[[for i = 33, 33, 1
-do
+for i = 1, 53, 1 do
 	test = tostring(i);
 	if test:len() == 1 then
 		test = '0' .. test
@@ -433,19 +586,11 @@ do
 	io.input(file)
 	subject = io.read("*all")
 	io.close(file)
-	a, b, c, d, e = parser.parse(subject, filename)
-	print(a)
-	print(b)
-	print(c)
-	print(d)
-	print(e)
-	if parser.parse(subject, filename) then
-		print("Ok")
-	end
-end]]
+	parser.parse(subject, filename)
+end
 
-filename = "a"
-subject = "enum a{}; int main(){"
-parser.parse(subject, filename)
+--[[filename = "a"
+subject = "enum a{};\nint main(){"
+parser.parse(subject, filename)]]
 
 return parser
