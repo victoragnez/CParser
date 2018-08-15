@@ -76,6 +76,7 @@ local labellist = {
 	{"InvalidEscSeq", "invalid esc sequence"},
 }
 
+--Returns error info
 local function get(str)
 	for _, pair in ipairs(labellist) do
 		if pair[1] == str then
@@ -84,12 +85,15 @@ local function get(str)
 	end
 end
 
+--list of errors
 errorlist = { }
 
+--record error given position and label
 local function recordOne(pos, label)
 	table.insert(errorlist,{pos, label})
 end
 
+--captures position and label of an error, then record it
 local function record(str)
 	return (Cp() * Cc(get(str))) / recordOne
 end
@@ -552,9 +556,11 @@ function getpos(pos, subject)
 end
 
 function parser.parse (subject, filename)
+	--clear errorlist
 	for i in pairs(errorlist) do
 		errorlist[i] = nil
 	end
+
 	lpeg.setmaxstack(2000)
 	local ret, a = lpeg.match(G, subject)
 	assert(ret and not a)
