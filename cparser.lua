@@ -563,7 +563,7 @@ function parser.parse (subject, filename)
 	for errNo, pair in ipairs(errorlist) do
 		pos, label = pair[1], pair[2]
 		l, c = getpos(pos,subject)
-		if l ~= lastLine then
+		if l ~= lastLine then --Avoid error cascade
 			print(filename .. ":" .. tostring(l) .. ":" .. tostring(c) .. " " .. label)
 			print(subject:sub(pos,pos))
 			print("^")
