@@ -3,7 +3,7 @@ local lpeg = require "lpeglabel"
 lpeg.locale(lpeg)
 
 --lpeg functions
-local P, S, V, T, Cp, Cc, Ct = lpeg.P, lpeg.S, lpeg.V, lpeg.T, lpeg.Cp, lpeg.Cc, lpeg.Ct
+local P, S, V, T, Cp, Cc = lpeg.P, lpeg.S, lpeg.V, lpeg.T, lpeg.Cp, lpeg.Cc
 
 local alpha, digit, xdigit, alnum = lpeg.alpha, lpeg.digit, lpeg.xdigit, lpeg.alnum
 
@@ -101,7 +101,7 @@ end
 --Grammar
 local G = { V"translation_unit", 
 	translation_unit =
-		Ct(V"skip" * expect(V"external_decl"^1, "InvalidDecl") * expect(-P(1), "InvalidDecl"));
+		V"skip" * expect(V"external_decl"^1, "InvalidDecl") * expect(-P(1), "InvalidDecl");
 	
 	external_decl =
 		V"function_def" +
