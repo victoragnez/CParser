@@ -203,7 +203,7 @@ local G = { V"translation_unit",
 
 	initializer =
 		sym("{") * V"initializer" * (sym(",") * V"initializer")^0 * sym(",")^-1 * expect(sym("}"), "Braces") +
-		V"assignment_exp";
+		expect(V"assignment_exp", "InvalidExpr");
 
 	type_name =
 		V"spec_qualifier_list" * V"abstract_declarator"^-1;
@@ -582,7 +582,7 @@ function parser.parse (subject, filename)
 	return ret
 end
 
-for i = 1, 53, 1 do
+for i = 1, 60, 1 do
 	test = tostring(i);
 	if test:len() == 1 then
 		test = '0' .. test
@@ -594,9 +594,5 @@ for i = 1, 53, 1 do
 	io.close(file)
 	parser.parse(subject, filename)
 end
-
---[[filename = "a"
-subject = "enum a{};\nint main(){"
-parser.parse(subject, filename)]]
 
 return parser
